@@ -4,3 +4,5 @@ Implementation of a rolling hash based file diff. It's only calculate the hash a
 Compilation:
 g++ -o rolling-hash TestRollingHash.cpp RollingHash.cpp
 
+Run:
+./rolling-hash ${original-file} ${updated-file} ${chunk-size}
