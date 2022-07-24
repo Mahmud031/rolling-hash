@@ -2,7 +2,8 @@
 Implementation of a rolling hash based file diff. It's only calculate the hash and find the match and mismatches. UTs are yet to be added.
 
 Compilation:
-g++ -o rolling-hash TestRollingHash.cpp RollingHash.cpp
+    g++ -o rolling-hash Main.cpp RollingHash.cpp FileOperations.cpp
 
-Run:
-./rolling-hash ${original-file} ${updated-file} ${chunk-size}
+for tests,
+    g++ -o rolling-hash-test TestRollingHash.cpp RollingHash.cpp FileOperations.cpp
+

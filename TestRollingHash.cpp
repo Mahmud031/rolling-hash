@@ -1,76 +1,110 @@
 #include "RollingHash.hpp"
+#include "FileOperations.hpp"
 #include <fstream>
 
-void readFile(std::string& filename, std::string& file_content)
+void testSameFiles()
 {
-    std::fstream new_file;
+    std::cout << "Testing two same files\n";
 
-    new_file.open(filename, std::ios::in);
+    RollingHash rHash;
+    FileOperation fOps;
 
-    if (!new_file.is_open())
+    std::string first = "";
+    std::string second = "";
+    std::string filename = "demo_files/name.txt";
+
+    fOps.readFile(filename, first);
+    fOps.readFile(filename, first);
+
+    //set a smaller chunk size and compare the strings
+
+    rHash.setChuckSize(8);
+    rHash.compareTwoStrings(first, second);
+
+    std::string& diff = rHash.getDiff();
+
+    //std::cout << diff << "\n";
+    if (diff.find("Mismatch") == std::string::npos)
     {
-        std::cout << "Error while opening the file  " << filename << "\n";
-        return;
+        std::cout << "Matching two same files is successful. No mismatch is found\n";
     }
-
-    std::string line;
-
-    while(getline(new_file, line))
+    else
     {
-        file_content += line;
+        std::cout << "Failed Test:  Matching two same files is unsuccessful. Mismatch is found\n";
     }
-
-    new_file.close();
 }
 
-void writeFile (std::string& filename, std::string& file_content)
+void testSameLongFiles()
 {
-    std::fstream new_file;
+    std::cout << "Testing two same long files\n";
 
-    new_file.open(filename, std::ios::out);
+    RollingHash rHash;
+    FileOperation fOps;
 
-    if (!new_file.is_open())
+    std::string first = "";
+    std::string second = "";
+    std::string filename = "demo_files/long_file.txt";
+
+    fOps.readFile(filename, first);
+    fOps.readFile(filename, first);
+
+    //set a smaller chunk size and compare the strings
+
+    rHash.setChuckSize(2048);
+    rHash.compareTwoStrings(first, second);
+
+    std::string& diff = rHash.getDiff();
+
+    //std::cout << diff << "\n";
+    if (diff.find("Mismatch") == std::string::npos)
     {
-        std::cout << "Error while opening the file  " << filename << "\n";
-        return;
+        std::cout << "Matching two same long files is successful. No mismatch is found\n";
     }
-
-    new_file << file_content;
-
-    new_file.close();
+    else
+    {
+        std::cout << "Failed Test:  Matching two same long files is unsuccessful. Mismatch is found\n";
+    }
 }
+
+void testDifferentFiles()
+{
+    std::cout << "Testing two different files\n";
+
+    RollingHash rHash;
+    FileOperation fOps;
+
+    std::string first = "";
+    std::string second = "";
+    std::string filename_first = "demo_files/name.txt";
+    std::string filename_second = "demo_files/name_updated.txt";
+
+    fOps.readFile(filename_first, first);
+    fOps.readFile(filename_second, second);
+
+    //set a smaller chunk size and compare the strings
+
+    rHash.setChuckSize(8);
+    rHash.compareTwoStrings(first, second);
+
+    std::string& diff = rHash.getDiff();
+
+    //std::cout << diff << "\n";
+    if (diff.find("Mismatch") != std::string::npos)
+    {
+        std::cout << "Matching two different files is successful. Mismatch is found\n";
+    }
+    else
+    {
+        std::cout << "Failed Test:  Matching two different files is unsuccessful. No mismatch is found\n";
+    }
+}
+
 
 int main(int argc, char** argv)
 {
-    RollingHash rollingHash;
-
-    // take the file names
-
-    if (argc < 3)
-    {
-        std::cout << "Please insert the original and updated file.";
-        return 0;
-    }
-
-    std::string original_filename = argv[1];
-    std::string updated_filename = argv[2];
-
-    std::string orig_file_content = "";
-    std::string upda_file_content = "";
-
-    readFile(original_filename, orig_file_content);
-    readFile(updated_filename, upda_file_content);
-
-    if (argc == 4) 
-    {
-        std::string chunk = argv[3];
-        rollingHash.setChuckSize(std::stoi(chunk));
-    }
-
-    rollingHash.compareTwoStrings(orig_file_content, upda_file_content);
-
-    std::string diff_file = (original_filename + "_diff_" + updated_filename);
-    writeFile(diff_file, rollingHash.getDiff());
+    testSameFiles();
+    testSameLongFiles();
+    testDifferentFiles();
 
     return 0;
 }

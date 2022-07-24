@@ -2,12 +2,12 @@
 
 RollingHash::RollingHash()
 {
-    std::cout << "Creating Rolling Hash Object\n";
+    //std::cout << "Creating Rolling Hash Object\n";
 }
 
 RollingHash::~RollingHash()
 {
-    std::cout << "Destructing Rolling Hash Object\n";
+    //std::cout << "Destructing Rolling Hash Object\n";
 }
 
 void RollingHash::setChuckSize(int size)
@@ -53,6 +53,12 @@ void RollingHash::compareTwoStrings(std::string& original, std::string& updated)
     // diff. If there's a mismatch at any offset of the updated file
     // store that mismatch in the diff
 
+    // The matching positions are bit tricky. It's possible that a continuous
+    // match in the updated file can include several parts of the original file.
+    // This can happen if some portion is removed in the updated file.
+    // Keep track of the starting position of the match in both original and updated file
+
+    int match_orig_start = -1, match_up_start = -1, match_pos_up = -1, mismatch_pos = -1;
     int i = 0;
     long long hash_updated = 0;
     while (i <= updated_size - CHUNK_SIZE)
@@ -63,26 +69,76 @@ void RollingHash::compareTwoStrings(std::string& original, std::string& updated)
         //std::cout << "Hash value for updated    " << hash_updated << "\n";
 
         if (map_rolling_hash_orig.find(hash_updated) != map_rolling_hash_orig.end()) {
-            // this chunk is present in the original string
-            // adding the information in the diff
-
-            if (i % CHUNK_SIZE == 0)
+            
+            // Check if it's an continuos match
+            if (match_pos_up == i - 1)
             {
-                // it's a new chunk and a match, update the info
-                diff += ("Chunk:  " + std::to_string(i/CHUNK_SIZE) + "    match with, Chunk:  "
-                        + std::to_string(map_rolling_hash_orig[hash_updated]/CHUNK_SIZE) + ",   Position:    " 
-                         + std::to_string(map_rolling_hash_orig[hash_updated] % CHUNK_SIZE) + "\n");
+                // check if it's the start of a new match or not
+                if (match_orig_start == -1 && match_up_start == -1)
+                {
+                    // update the start positions
+                    match_orig_start = map_rolling_hash_orig[hash_updated];
+                    match_up_start = i;
+                }
+                else
+                {
+                    // check it's a continuos match in the original file
+                    int match_len = (match_pos_up + 1) - match_up_start;    // match_pos_up is indicating the previous char now
+
+                    if ((match_orig_start + match_len) != map_rolling_hash_orig[hash_updated])
+                    {
+                        // not a continuos match, update in diff
+                        writeToDiff(match_orig_start, match_up_start, match_pos_up, mismatch_pos, RollingHash::MatchType::MATCH);
+
+                        match_orig_start = -1;
+                        match_up_start = -1;
+                    }
+
+                }
+            }
+            else
+            {
+                // new match
+                match_orig_start = map_rolling_hash_orig[hash_updated];
+                match_up_start = i;
+
+                // update the previous mismatch information
+                int mis_match_len = mismatch_pos - (match_pos_up + 1);
+                writeToDiff(match_orig_start, match_up_start, match_pos_up, mismatch_pos, RollingHash::MatchType::MISMATCH);
             }
 
+            // update diff if it's already in the last character
+            if (i == updated_size - CHUNK_SIZE)
+            {
+                int match_len = (match_pos_up + 1) - match_up_start;
+                writeToDiff(match_orig_start, match_up_start, match_pos_up, mismatch_pos, RollingHash::MatchType::MATCH);
+            }
+
+            match_pos_up = i;
             //std::cout << "Match found at    " << map_rolling_hash_orig[hash_updated] << "\n";
         }
         else
         {
-            // No match found
-            diff += ("       Mismatch at Chunk:    " + std::to_string(i/CHUNK_SIZE) + ",   position    " +
-                        std::to_string(i%CHUNK_SIZE) + "\n");
+            // Check if it's continuos mismatch
+            if (mismatch_pos != i - 1)
+            {
+                // It's a new mismatch, put the last match info into diff
+                int match_len = match_pos_up - (mismatch_pos + 1);
+                writeToDiff(match_orig_start, match_up_start, match_pos_up, mismatch_pos, RollingHash::MatchType::MATCH);
+                    
+                match_orig_start = -1;
+                match_up_start = -1;
+            }
 
-            /*std::cout << "Checking the rolling hash of the updated file\n";*/
+            // update diff if it's already in the last character
+            if (i == updated_size - CHUNK_SIZE)
+            {
+                int mis_match_len = mismatch_pos - (match_pos_up + 1);
+                writeToDiff(match_orig_start, match_up_start, match_pos_up, mismatch_pos, RollingHash::MatchType::MISMATCH);
+            }
+
+            // update the mismatch_pos
+            mismatch_pos = i;
         }
         
         i++;
@@ -112,12 +168,13 @@ long long RollingHash::calculateHash(std::string& hash_string, int start, int en
 {
     long long hash = 0;
 
+    //std::cout << "Calculating Hash from     " << start << " to   " << end << "\n";
     for (int i = start; i <= end; ++i)
     {
         hash *= BASE_NUM;
         hash += hash_string[i];
         hash %= MOD_NUM;
-
+        //std::cout << i << "  " << hash_string[i] << "\n";
         //std::cout << "Calculating hash   " << hash_string[i] << "\n";
     }
 
@@ -126,10 +183,21 @@ long long RollingHash::calculateHash(std::string& hash_string, int start, int en
 
 void RollingHash::calculateRollingHash(std::string& hash_string, long long& previous_hash, int start, int end)
 {
+    /**
+     * Rolling Hash calculation include the chars from start to end from the
+     * previous hash. If previous hash is 0, it calculates the hash for the CHUNK
+     * end-CHUNK_SIZE+1 to end.
+     */
     if (previous_hash == 0 || start - CHUNK_SIZE < 0)
     {
+        if (end - CHUNK_SIZE + 1 < 0)
+        {
+            std::cout << "Invaild chunk size for hash calculation\n";
+            //std::cout << end << "   " << CHUNK_SIZE  << "\n";
+            return;
+        }
         //it's a new hash value
-        previous_hash = calculateHash(hash_string, end - CHUNK_SIZE, end);
+        previous_hash = calculateHash(hash_string, end - CHUNK_SIZE + 1, end);
         return;
     }
 
@@ -184,4 +252,39 @@ long long RollingHash::powerOfBase(int power)
     }
 
     return res;
+}
+
+void RollingHash::writeToDiff(int mat_orig_start, int mat_up_start, int mat_pos_up, int mismat_pos, RollingHash::MatchType m_type)
+{
+    switch(m_type)
+    {
+        case RollingHash::MatchType::MATCH:
+        {
+            int match_len = mat_pos_up - (mismat_pos + 1);
+            diff += ("Match: From Chunk:  " + std::to_string(mat_up_start/CHUNK_SIZE) +
+                    "   Position:   " + std::to_string(mat_up_start%CHUNK_SIZE) +
+                    "   To Chunk:   " + std::to_string(mat_pos_up/CHUNK_SIZE) + 
+                    "   Position:   " + std::to_string(mat_pos_up%CHUNK_SIZE) +
+                    "\n\t\tWith Original,From Chunk: " + std::to_string(mat_orig_start/CHUNK_SIZE) +
+                    "   Position    " + std::to_string(mat_orig_start%CHUNK_SIZE) +
+                    "   To Chunk:   " + std::to_string((mat_orig_start + match_len - 1)/CHUNK_SIZE) + 
+                    "   Position:   " + std::to_string((mat_orig_start + match_len - 1)%CHUNK_SIZE) + "\n");
+            break;
+        }
+        case RollingHash::MatchType::MISMATCH:
+        {
+            int mis_match_len = mismat_pos - (mat_pos_up + 1);
+                diff += ("Mismatch: From Chunk:  " + std::to_string((mismat_pos - mis_match_len)/CHUNK_SIZE) +
+                        "   Position:   " + std::to_string((mismat_pos - mis_match_len)%CHUNK_SIZE) +
+                        "   To Chunk:   " + std::to_string(mismat_pos/CHUNK_SIZE) + 
+                        "   Position:   " + std::to_string(mismat_pos%CHUNK_SIZE) + "\n");
+            break;
+        }
+
+        default:
+        {
+            std::cout << "Invaild MatchType\n";
+            break;
+        }
+    }
 }

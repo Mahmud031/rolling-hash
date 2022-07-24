@@ -52,6 +52,16 @@ public:
 
     std::string diff = "";
 
+    /**
+     * @brief Enum for match or mismatch
+     */
+
+    enum MatchType
+    {
+        MATCH,
+        MISMATCH
+    };
+
 private:
     /**
      * @brief Calculates the hash value of the input string from 
@@ -93,6 +103,16 @@ private:
      */
 
     long long powerOfBase(int power);
+
+    /**
+     * @brief Write to the diff string
+     * @param mat_orig_start start of the matching position in original string
+     * @param mat_up_start start of the matching position in updated string
+     * @param mat_pos_up current matching position
+     * @param mismat_pos current mismatch position
+     */
+
+    void writeToDiff(int mat_orig_start, int mat_up_start, int mat_pos_up, int mismat_pos, RollingHash::MatchType m_type);
 
     /**
      * @brief Define the base number for hash calculation

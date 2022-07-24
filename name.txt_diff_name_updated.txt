@@ -1,7 +1,0 @@
-Chunk:  0    match with, Chunk:  0,   Position:    0
-Chunk:  1    match with, Chunk:  1,   Position:    0
-       Mismatch at Chunk:    2,   position    0
-       Mismatch at Chunk:    2,   position    1
-Chunk:  3    match with, Chunk:  2,   Position:    1
-Chunk:  4    match with, Chunk:  3,   Position:    1
-Chunk:  5    match with, Chunk:  4,   Position:    1
